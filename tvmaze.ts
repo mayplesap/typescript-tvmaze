@@ -2,16 +2,24 @@ import axios from "axios"
 import * as $ from 'jquery';
 
 const $showsList = $("#showsList");
+const $episodesList = $("#episodesList");
 const $episodesArea = $("#episodesArea");
 const $searchForm = $("#searchForm");
 const DEFAULT_IMAGE = "https://static.tvmaze.com/images/no-img/no-img-portrait-text.png";
-const BASE_URL = "https://api.tvmaze.com/search/shows?q=";
+const BASE_URL = "https://api.tvmaze.com";
 
 interface Show {
   id: string;
   name: string;
   summary: string;
   image: string;
+}
+
+interface Episode {
+  id: string;
+  name: string;
+  season: string;
+  number: string;
 }
 
 /** Given a search term, search for tv shows that match that query.
@@ -22,33 +30,13 @@ interface Show {
  */
 
 async function getShowsByTerm(term: string): Promise<Show[]> {
-  // ADD: Remove placeholder & make request to TVMaze search shows API.
-  
-  let response = await axios.get(`${BASE_URL}${term}`);
-  return response.data.map(show => ({
+  let response = await axios.get(`${BASE_URL}/search/shows?q=${term}`);
+  return response.data.map((show: any) => ({
     id: show.show.id,
     name: show.show.name,
     summary: show.show.summary,
     image: show.show.image !== null ? show.show.image.medium : DEFAULT_IMAGE
   }));
-  // return [
-  //   {
-  //     id: 1767,
-  //     name: "The Bletchley Circle",
-  //     summary:
-  //       `<p><b>The Bletchley Circle</b> follows the journey of four ordinary
-  //          women with extraordinary skills that helped to end World War II.</p>
-  //        <p>Set in 1952, Susan, Millie, Lucy and Jean have returned to their
-  //          normal lives, modestly setting aside the part they played in
-  //          producing crucial intelligence, which helped the Allies to victory
-  //          and shortened the war. When Susan discovers a hidden code behind an
-  //          unsolved murder she is met by skepticism from the police. She
-  //          quickly realises she can only begin to crack the murders and bring
-  //          the culprit to justice with her former friends.</p>`,
-  //     image:
-  //         "http://static.tvmaze.com/uploads/images/medium_portrait/147/369403.jpg"
-  //   }
-  // ]
 }
 
 
@@ -84,7 +72,7 @@ function populateShows(shows: Show[]): void {
  *    Hide episodes area (that only gets shown if they ask for episodes)
  */
 
-async function searchForShowAndDisplay() {
+async function searchForShowAndDisplay(): Promise<void> {
   const term: string = String($("#searchForm-term").val());
   const shows = await getShowsByTerm(term);
 
@@ -101,9 +89,34 @@ $searchForm.on("submit", async function (evt) {
 /** Given a show ID, get from API and return (promise) array of episodes:
  *      { id, name, season, number }
  */
+ async function getEpisodesOfShow(id: string): Promise<Episode[]>{ 
+  let url: string = BASE_URL + `/shows/${id}/episodes`;
+  let response = await axios.get(url);
+  return response.data;
+}
 
-// async function getEpisodesOfShow(id) { }
+/** Given an array of episodes, populate each episode into the DOM */
 
-/** Write a clear docstring for this function... */
+function populateEpisodes(episodes: Episode[]): void { 
 
-// function populateEpisodes(episodes) { }
+  $episodesList.empty();
+  for (let episode of episodes) {
+    let { name, season, number } = episode;
+    const $episode = $(`<li>${name} (season ${season}, number ${number})</li>`);
+    $episodesList.append($episode);
+  }
+  $episodesArea.show();
+}
+
+/** Get episodes from API using show id from evt target and adds them
+ *  to the DOM
+ */
+ async function searchforEpisodesAndDisplay(evt: JQuery.ClickEvent): Promise<void> {
+
+  const $button = $(evt.target);
+  const id = $button.closest('.Show').data('show-id');
+  const episodes = await getEpisodesOfShow(id);
+  populateEpisodes(episodes);
+}
+
+$showsList.on("click", "button", searchforEpisodesAndDisplay);
